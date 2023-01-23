@@ -1,75 +1,41 @@
 #!/usr/bin/python3
-"""
-View for Users that handles all RESTful API actions
-"""
-
-from flask import jsonify, request, abort
+"""Module for User related endpoints"""
+from api.v1.views import app_views
+from api.v1.views import *
+from flask import jsonify, make_response, abort, request
 from models import storage
 from models.user import User
-from api.v1.views import app_views
+
+model = "User"
 
 
-@app_views.route('/users', methods=['GET'], strict_slashes=False)
-def users_all():
-    """ returns list of all User objects """
-    users_all = []
-    users = storage.all("User").values()
-    for user in users:
-        users_all.append(user.to_json())
-    return jsonify(users_all)
+@app_views.route("/users", strict_slashes=False,
+                 methods=["GET"], defaults={"user_id": None})
+@app_views.route("/users/<user_id>", methods=["GET"])
+def get_user(user_id):
+    """GET /user api route"""
+    if not user_id:
+        list_objs = [v.to_dict() for v in storage.all(model).values()]
+        return jsonify(list_objs)
+
+    return get_model(model, user_id)
 
 
-@app_views.route('/users/<user_id>', methods=['GET'])
-def user_get(user_id):
-    """ handles GET method """
-    user = storage.get("User", user_id)
-    if user is None:
-        abort(404)
-    user = user.to_json()
-    return jsonify(user)
+@app_views.route("/users/<user_id>", methods=["DELETE"])
+def delete_user(user_id):
+    """DELETE /user api route"""
+    return delete_model(model, user_id)
 
 
-@app_views.route('/users/<user_id>', methods=['DELETE'])
-def user_delete(user_id):
-    """ handles DELETE method """
-    empty_dict = {}
-    user = storage.get("User", user_id)
-    if user is None:
-        abort(404)
-    storage.delete(user)
-    storage.save()
-    return jsonify(empty_dict), 200
+@app_views.route("/users", strict_slashes=False, methods=["POST"])
+def post_user():
+    """POST /user api route"""
+    required_data = {"email", "password"}
+    return post_model(model, None, None, required_data)
 
 
-@app_views.route('/users', methods=['POST'], strict_slashes=False)
-def user_post():
-    """ handles POST method """
-    data = request.get_json()
-    if data is None:
-        abort(400, "Not a JSON")
-    if 'email' not in data:
-        abort(400, "Missing email")
-    if 'password' not in data:
-        abort(400, "Missing password")
-    user = User(**data)
-    user.save()
-    user = user.to_json()
-    return jsonify(user), 201
-
-
-@app_views.route('/users/<user_id>', methods=['PUT'])
-def user_put(user_id):
-    """ handles PUT method """
-    user = storage.get("User", user_id)
-    if user is None:
-        abort(404)
-    data = request.get_json()
-    if data is None:
-        abort(400, "Not a JSON")
-    for key, value in data.items():
-        ignore_keys = ["id", "email", "created_at", "updated_at"]
-        if key not in ignore_keys:
-            user.bm_update(key, value)
-    user.save()
-    user = user.to_json()
-    return jsonify(user), 200
+@app_views.route("/users/<user_id>", methods=["PUT"])
+def put_user(user_id):
+    """PUT /user api route"""
+    ignore_data = ["id", "created_at", "updated_at", "email"]
+    return put_model(model, user_id, ignore_data)
